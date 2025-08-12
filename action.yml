@@ -51,10 +51,7 @@ runs:
           echo "$folder was changed"
         done
 
-    - name: Use Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 22
+
 
     - name: Install dependencies
       shell: bash
