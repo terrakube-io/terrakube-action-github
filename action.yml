@@ -1,48 +1,49 @@
-name: 'TerrakubeAction'
-description: 'Github integration with Terrakube Platform'
+name: "TerrakubeAction"
+description: "Github integration with Terrakube Platform"
 branding:
-  icon: 'package'
-  color: 'purple'
+  icon: "package"
+  color: "purple"
 inputs:
   TERRAKUBE_TOKEN:
-    description: 'Terrakube Personal Access Token'
+    description: "Terrakube Personal Access Token"
     required: true
   TERRAKUBE_ENDPOINT:
-    description: 'Terrakube Endpoint'
+    description: "Terrakube Endpoint"
     required: true
   TERRAKUBE_TEMPLATE:
-    description: 'Terrakube Template'
+    description: "Terrakube Template"
     required: true
   TERRAKUBE_ORGANIZATION:
-    description: 'Terrakube Organization'
+    description: "Terrakube Organization"
     required: true
   TERRAKUBE_BRANCH:
-    description: 'Repository branch to be executed'
+    description: "Repository branch to be executed"
+    default: "main"
     required: true
   TERRAKUBE_SSH_KEY_NAME:
-    description: 'Repository branch to be executed'
+    description: "Repository branch to be executed"
     required: false
   SHOW_OUTPUT:
-    description: 'Show Terrakube job output inside github commets'
+    description: "Show Terrakube job output inside github commets"
     required: true
   GITHUB_TOKEN:
-    description: 'Github Token'
+    description: "Github Token"
     required: true
   IGNORE_SSL_ERROR:
-    description: 'Ignore SSL errors (e.g. self-signed certificate)'
+    description: "Ignore SSL errors (e.g. self-signed certificate)"
     required: false
     default: false
 outputs:
   JOB_ID:
-    description: 'Terrakube Job Execution Id'
+    description: "Terrakube Job Execution Id"
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Get changed folders
       id: changed-files
       uses: tj-actions/changed-files@v45
       with:
-        dir_names: 'true'
+        dir_names: "true"
 
     - name: List all folder changes
       shell: bash
@@ -62,7 +63,7 @@ runs:
         yarn install
         yarn build
       working-directory: ${{ github.action_path }}
-    
+
     - run: |
         node ${{ github.action_path }}/dist/main.js
       id: terrakube-integration

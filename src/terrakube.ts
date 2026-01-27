@@ -342,7 +342,7 @@ export class TerrakubeClient {
 
     }
 
-    async createJobId(organizationId: string, workspaceId: string, templateId: string): Promise<any> {
+    async createJobId(organizationId: string, workspaceId: string, templateId: string, branchName: string): Promise<any> {
         if (this.authenticationToken === 'empty') {
             this.authenticationToken = this.gitHubActionInput.token
         }
@@ -351,7 +351,8 @@ export class TerrakubeClient {
             "data": {
                 "type": "job",
                 "attributes": {
-                    "templateReference": templateId
+                    "templateReference": templateId,
+                    "overrideBranch": branchName
                 },
                 "relationships": {
                     "workspace": {

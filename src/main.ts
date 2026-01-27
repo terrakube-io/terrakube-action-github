@@ -66,7 +66,7 @@ async function run(): Promise<void> {
             core.info(`Using template id ${templateId}`)
 
             core.info(`Creating new job: `)
-            const jobId = await terrakubeClient.createJobId(organizationId, workspaceId, templateId)
+            const jobId = await terrakubeClient.createJobId(organizationId, workspaceId, templateId, githubActionInput.branch)
             core.debug(`JobId: ${jobId}`)
 
 
