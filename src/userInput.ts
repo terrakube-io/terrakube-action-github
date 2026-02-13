@@ -11,7 +11,8 @@ export interface GitHubActionInput {
   githubToken: string,
   showOutput: boolean,
   branch: string,
-  ignoreSslError: boolean
+  ignoreSslError: boolean,
+  githubWorkspace: string,
 }
 
 export async function getActionInput(): Promise<any> {
@@ -54,6 +55,8 @@ export async function getActionInput(): Promise<any> {
   const ignoreSslError = core.getBooleanInput('ignore_ssl_error', { required: true });
   core.debug(`Ignore SSL Error: ${ignoreSslError}`);
 
+  const githubWorkspace = core.getInput('github_workspace', { required: true })
+
   const terrakubeActionInput: GitHubActionInput = {
     token: terrakubeToken,
     terrakubeEndpoint: terrakubeEndpoint,
@@ -65,7 +68,8 @@ export async function getActionInput(): Promise<any> {
     githubToken: githubToken,
     showOutput: showOutput,
     branch: terrakubeBranch,
-    ignoreSslError: ignoreSslError
+    ignoreSslError: ignoreSslError,
+    githubWorkspace,
   }
 
   return terrakubeActionInput

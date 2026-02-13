@@ -83,3 +83,4 @@ runs:
         INPUT_SHOW_OUTPUT: ${{ inputs.SHOW_OUTPUT }}
         INPUT_GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
         INPUT_IGNORE_SSL_ERROR: ${{ inputs.IGNORE_SSL_ERROR }}
+        INPUT_GITHUB_WORKSPACE: ${{ github.workspace }}
