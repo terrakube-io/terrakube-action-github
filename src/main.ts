@@ -19,11 +19,11 @@ async function run(): Promise<void> {
     for await (const file of globber.globGenerator()) {
       const terrakubeData = JSON.parse(await readFile(`${file}`, "utf8"))
 
-      const workspaceFolder = path.basename(path.dirname(file))
+      const workspaceFolder = path.relative(githubActionInput.githubWorkspace, path.dirname(file))
       const isFolderChanged = githubActionInput.terrakubeFolder.split(" ").indexOf(workspaceFolder) > -1;
       core.info(`Folder ${workspaceFolder} was_changed: ${isFolderChanged}`);
       const workspaceName = terrakubeData.workspace && terrakubeData.workspace.trim() !== ""
-          ? terrakubeData.workspace : workspaceFolder;
+          ? terrakubeData.workspace : path.basename(workspaceFolder);
 
 
       //Folder with terrakube.json file change
@@ -117,6 +117,12 @@ async function checkTerrakubeLogs(terrakubeClient: TerrakubeClient, githubToken:
   for (let index = 0; index < Object.keys(jobSteps).length; index++) {
 
     core.startGroup(`Running ${jobSteps[index].attributes.name}`)
+
+    if (jobSteps[index].attributes.status === "notExecuted") {
+      core.info("Job was skipped")
+      core.endGroup()
+      continue;
+    }
 
     const response: httpm.HttpClientResponse = await httpClient.get(`${jobSteps[index].attributes.output}`, {
       'Authorization': `Bearer ${terrakubeClient.getAuthToken()}`
