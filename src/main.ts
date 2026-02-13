@@ -70,7 +70,7 @@ async function run(): Promise<void> {
             core.debug(`JobId: ${jobId}`)
 
 
-            await checkTerrakubeLogs(terrakubeClient, githubActionInput.githubToken, organizationId, jobId, workspaceName, githubActionInput.showOutput)
+            await checkTerrakubeLogs(terrakubeClient, githubActionInput.githubToken, organizationId, jobId, workspaceName, githubActionInput.terrakubeEndpoint, githubActionInput.showOutput)
 
           } else {
             core.error(`Template not found: ${githubActionInput.terrakubeTemplate} in Organization: ${githubActionInput.terrakubeOrganization}`)
@@ -95,7 +95,7 @@ async function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function checkTerrakubeLogs(terrakubeClient: TerrakubeClient, githubToken: string, organizationId: string, jobId: string, workspaceFolder: string, show_output: boolean) {
+async function checkTerrakubeLogs(terrakubeClient: TerrakubeClient, githubToken: string, organizationId: string, jobId: string, workspaceFolder: string, terrakubeEndpoint: string, show_output: boolean) {
   let jobResponse = await terrakubeClient.getJobData(organizationId, jobId)
   let jobResponseJson = JSON.parse(jobResponse)
 
@@ -118,13 +118,14 @@ async function checkTerrakubeLogs(terrakubeClient: TerrakubeClient, githubToken:
 
     core.startGroup(`Running ${jobSteps[index].attributes.name}`)
 
-    if (jobSteps[index].attributes.status === "notExecuted") {
-      core.info("Job was skipped")
+    if (jobSteps[index].attributes.status !== "completed" && jobSteps[index].attributes.status !== "failed") {
+      core.info("Step was skipped")
       core.endGroup()
       continue;
     }
 
-    const response: httpm.HttpClientResponse = await httpClient.get(`${jobSteps[index].attributes.output}`, {
+    const outputPath = new URL(jobSteps[index].attributes.output).pathname
+    const response: httpm.HttpClientResponse = await httpClient.get(`${terrakubeEndpoint}${outputPath}`, {
       'Authorization': `Bearer ${terrakubeClient.getAuthToken()}`
   });
 
