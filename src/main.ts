@@ -56,7 +56,7 @@ async function run(): Promise<void> {
               core.info(`Ssh Id: ${sshId}`)
             }
 
-            workspaceId = await terrakubeClient.createWorkspace(organizationId, workspaceName, terrakubeData.terraform, `/${workspaceName}`, githubActionInput.terrakubeRepository, githubActionInput.branch, sshId)
+            workspaceId = await terrakubeClient.createWorkspace(organizationId, workspaceName, terrakubeData.terraform, workspaceFolder, githubActionInput.terrakubeRepository, githubActionInput.branch, sshId)
           }
 
           core.info(`Searching template ${githubActionInput.terrakubeTemplate}`)
