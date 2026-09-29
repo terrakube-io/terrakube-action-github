@@ -95,6 +95,25 @@ async function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// The one line worth reading without expanding the log: Terraform's plan
+// summary, or the first error. Falls back to the last line of a failed step.
+function summarizeStep(body: string, status: string): string {
+  const patterns = [
+    /^\s*Plan: \d+ to add, \d+ to change, \d+ to destroy\.$/m,
+    /^\s*No changes\. .*$/m,
+    /^\s*Error: .*$/m,
+  ]
+  for (const pattern of patterns) {
+    const match = body.match(pattern)
+    if (match) return match[0].trim()
+  }
+  if (status === "failed") {
+    const lines = body.split("\n").map(line => line.trim()).filter(line => line.length > 0)
+    return lines.length > 0 ? lines[lines.length - 1].slice(0, 200) : ''
+  }
+  return ''
+}
+
 async function checkTerrakubeLogs(terrakubeClient: TerrakubeClient, githubToken: string, organizationId: string, jobId: string, workspaceFolder: string, terrakubeEndpoint: string, show_output: boolean) {
   let jobResponse = await terrakubeClient.getJobData(organizationId, jobId)
   let jobResponseJson = JSON.parse(jobResponse)
@@ -113,7 +132,9 @@ async function checkTerrakubeLogs(terrakubeClient: TerrakubeClient, githubToken:
   const jobSteps = jobResponseJson.included
   core.info(`${Object.keys(jobSteps).length}`)
 
-  let finalComment = `## Workspace: \`${workspaceFolder}\` Status: \`${jobResponseJson.data.attributes.status.toUpperCase()}\` \n`;
+  const header = `## Workspace: \`${workspaceFolder}\` Status: \`${jobResponseJson.data.attributes.status.toUpperCase()}\` \n`;
+  let resultLine = ''
+  let stepsComment = ''
   for (let index = 0; index < Object.keys(jobSteps).length; index++) {
 
     core.startGroup(`Running ${jobSteps[index].attributes.name}`)
@@ -139,11 +160,16 @@ async function checkTerrakubeLogs(terrakubeClient: TerrakubeClient, githubToken:
     if (show_output) {
       body = body.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
       body = body.replace(/^(\s*)\+/gm, '+$1');
-      const commentBody = `\n ## Logs: ${jobSteps[index].attributes.name} status ${jobSteps[index].attributes.status} \n \`\`\`diff\n${body}\n\`\`\` `;
-      finalComment = finalComment.concat(commentBody)
+      const summary = summarizeStep(body, jobSteps[index].attributes.status)
+      if (!resultLine && summary) resultLine = summary
+      // Collapsed by default: a PR touching several stacks is otherwise a wall of full plan logs.
+      const commentBody = `\n<details>\n<summary>Logs: ${jobSteps[index].attributes.name} status ${jobSteps[index].attributes.status}${summary ? ` — ${summary}` : ''}</summary>\n\n\`\`\`diff\n${body}\n\`\`\`\n\n</details>\n`;
+      stepsComment = stepsComment.concat(commentBody)
     }
 
   }
+
+  const finalComment = header.concat(resultLine ? `**${resultLine}**\n` : '', stepsComment)
 
   if (show_output) {
     core.info("Setup Octoki client")
