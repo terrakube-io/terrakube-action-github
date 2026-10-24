@@ -484,3 +484,18 @@ test('redacts multiline forwarded variables in logs and structured context', asy
     await close()
   }
 })
+
+test('no-change validation preserves metadata even when an input equals a status word', async () => {
+  const {client, pool, close} = setup({variables: {mode: 'plan'}})
+  const context = {structuredOutputStatus: {phase: 'plan'}, value: 'plan'}
+  pool.intercept({path: '/context/v1/42'}).reply(200, context).times(2)
+  try {
+    assert.deepEqual(await client.context('42'), {
+      structuredOutputStatus: {phase: '***'},
+      value: '***'
+    })
+    assert.deepEqual(await client.context('42', undefined, false), context)
+  } finally {
+    await close()
+  }
+})

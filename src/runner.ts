@@ -204,7 +204,7 @@ export async function runJobs(
                 !hasCompletedNoChangePlan(
                   document,
                   contract,
-                  await client.context(result.jobId, deadline)
+                  await client.context(result.jobId, deadline, false)
                 )
               )
                 throw new Error(

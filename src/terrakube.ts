@@ -360,7 +360,8 @@ export class TerrakubeClient {
 
   async context(
     id: string,
-    deadline?: number
+    deadline?: number,
+    redact = true
   ): Promise<Record<string, unknown>> {
     const result = await this.json(
       'GET',
@@ -369,6 +370,9 @@ export class TerrakubeClient {
       deadline,
       'application/json'
     )
+    // Semantic checks must not mask enum values that happen to equal an input.
+    // Feedback uses the redacted default; raw context never becomes an output.
+    if (!redact) return result
     return JSON.parse(
       JSON.stringify(result, (_key, value: unknown) =>
         typeof value === 'string'
