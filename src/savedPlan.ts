@@ -4,6 +4,7 @@ import {Document, Resource} from './terrakube'
 export interface SavedPlanTemplate {
   plan: number
   approval: number
+  approvalTeam: string
   apply: number
   steps: number[]
 }
@@ -47,13 +48,21 @@ export function savedPlanTemplate(value: unknown): SavedPlanTemplate {
     if (
       plan >= approval ||
       approval >= apply ||
+      typeof required[1]!.team !== 'string' ||
+      !(required[1]!.team as string).trim() ||
       required[2]!.requireSavedPlan !== true
     )
       throw new Error()
-    return {plan, approval, apply, steps: flow.map(step => Number(step.step))}
+    return {
+      plan,
+      approval,
+      approvalTeam: required[1]!.team as string,
+      apply,
+      steps: flow.map(step => Number(step.step))
+    }
   } catch {
     throw new Error(
-      'Staged execution requires one plan, approval and apply in order, with requireSavedPlan: true on apply and no ignored errors or destroy steps'
+      'Staged execution requires one plan, approval and apply in order, with an explicit approval team, requireSavedPlan: true on apply and no ignored errors or destroy steps'
     )
   }
 }
@@ -97,6 +106,7 @@ export function verifyApprovalGate(
   const steps = document.included || []
   if (
     document.data.attributes.status !== 'waitingApproval' ||
+    document.data.attributes.approvalTeam !== contract.approvalTeam ||
     steps.some(step => {
       const number = Number(step.attributes.stepNumber)
       const status = String(step.attributes.status)

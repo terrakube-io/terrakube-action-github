@@ -242,6 +242,12 @@ flow:
 
 You can add policy evaluation, scanning, cost estimation or notification steps around this sequence. Use unique, increasing step numbers and keep `requireSavedPlan: true` on apply. Before releasing approval, the action requires every preceding step to have succeeded and every following step to be pending. Additional plan, approval, apply or destroy steps and `ignoreError: true` are rejected.
 
+Set `team` to the exact apply team's name. Terrakube treats an approval step
+without a team as open to authenticated job readers, which would let a plan
+identity approve it. Staged execution requires an explicit team and checks that
+the held job reports the same team. Keep the plan identity out of this team and
+without approval rights through any other organization, project or workspace role.
+
 The approval step holds the run until the GitHub-approved apply job releases it through the API. There is no second human approval in Terrakube. Keep this template unchanged while plans are pending: the action checks the template reference and step sequence, but the API does not expose the job's private workflow snapshot. The executor fails if the saved plan cannot be loaded; Terraform/OpenTofu rejects a stale plan.
 
 ```yaml

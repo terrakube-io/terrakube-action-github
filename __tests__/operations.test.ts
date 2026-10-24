@@ -23,6 +23,7 @@ const targets = [
 
 function savedJob(status = 'waitingApproval') {
   const document = job(status, ['completed', 'waitingApproval', 'pending'])
+  document.data.attributes.approvalTeam = 'deploy'
   document.data.attributes.tcl = tcl
   document.data.attributes.templateReference = 'template'
   document.data.relationships!.workspace = {
@@ -251,6 +252,7 @@ const hookTcl = Buffer.from(
   - type: policyEvaluation
     step: 150
   - type: approval
+    team: deploy
     step: 200
   - type: customScripts
     step: 250
@@ -277,6 +279,7 @@ test('staged templates allow scanning, policy and notification hooks around the 
   assert.deepEqual(savedPlanTemplate(hookTcl), {
     plan: 100,
     approval: 200,
+    approvalTeam: 'deploy',
     apply: 300,
     steps: [50, 100, 150, 200, 250, 300, 350]
   })
@@ -359,4 +362,26 @@ test('extra hooks cannot introduce duplicate gates, additional plans, unguarded 
     source.replace('requireSavedPlan: true', 'requireSavedPlan: false')
   ])
     assert.throws(() => savedPlanTemplate(Buffer.from(text).toString('base64')))
+})
+
+test('staged execution refuses missing or blank approval teams before submission', () => {
+  const source = Buffer.from(tcl, 'base64').toString()
+  for (const team of ['', '    team: ""\n', '    team: "   "\n']) {
+    const unsafe = source.replace('    team: deploy\n', team)
+    assert.throws(
+      () => savedPlanTemplate(Buffer.from(unsafe).toString('base64')),
+      /explicit approval team/
+    )
+  }
+})
+
+test('a held run must report the configured approval team before it can be approved', async () => {
+  for (const team of [undefined, '', 'different-team']) {
+    const {run, setDocument, transitions} = setup()
+    const document = savedJob()
+    document.data.attributes.approvalTeam = team
+    setDocument(document)
+    assert.equal((await run())[0]?.status, 'error')
+    assert.deepEqual(transitions, [])
+  }
 })
