@@ -114,6 +114,7 @@ test('submits immutable revision separately from branch and does not retry POST'
       body: (body: string) => {
         const request = JSON.parse(body)
         assert.equal(request.data.attributes.commitId, sha)
+        assert.equal(request.data.attributes.via, 'Github')
         assert.equal(request.data.attributes.overrideBranch, 'feature')
         assert.equal(
           request.data.attributes.templateReference,

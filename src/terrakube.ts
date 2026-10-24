@@ -293,6 +293,7 @@ export class TerrakubeClient {
           attributes: {
             ...(hasVariables ? {variables: this.config.variables} : {}),
             templateReference: templateId,
+            via: 'Github',
             overrideBranch: this.config.branch,
             ...(this.config.commit ? {commitId: this.config.commit} : {})
           },
