@@ -6,6 +6,43 @@ Version 2 requires **Terrakube 2.34.0 or later**.
 
 **Self-hosted runners must use Actions runner v2.327.1 or later for the bundled Node 24 runtime.** No separate Node installation is needed. See [GitHub’s Node 24 action requirements](https://github.com/actions/setup-node#breaking-changes-in-v5).
 
+## GitOps flow
+
+Terraform runs on the Terrakube executor. The action authenticates to Terrakube,
+starts or resumes a job, waits for its result, and reports back to GitHub.
+
+For pull requests, use a plan-only template against the PR commit:
+
+```mermaid
+flowchart LR
+  PR["PR commit"] --> Plan["Terrakube plan"]
+  Plan --> Feedback["PR comment and job summary"]
+  Feedback --> Review["Review and merge"]
+```
+
+After merging, plan the merged commit again. GitHub environment approval then
+gates applying that saved plan:
+
+```mermaid
+flowchart LR
+  Main["Merge to main"] --> Plan["Save Terrakube plan"]
+  Plan --> Changes{"Changes?"}
+  Changes -- No --> Done["Finish without apply"]
+  Changes -- Yes --> Approval["GitHub environment approval"]
+  Approval --> Apply["Apply the same JOB_ID"]
+```
+
+Use `TERRAKUBE_OPERATION: plan`, then pass its `JOB_ID` to `apply` with the same
+commit and template. The plan and its inputs stay in Terrakube; no plan artifact
+needs transferring through GitHub. The PR plan is feedback, not the deployment
+plan for a later merge commit.
+
+Keep plan and apply identities separate. With OIDC, restrict the apply credential
+to the deployment branch and protected environment, and name that team on the
+Terrakube approval step. Load any per-run variables before planning; apply reuses
+the saved inputs. See [authentication](#authentication), [variables](#per-run-terraform-variables)
+and the [deployment example](#plan-and-apply-with-github-approval).
+
 ## Usage
 
 Choose [OIDC](#oidc) or a [personal access token](#token). Both examples run a plan against an existing workspace.
