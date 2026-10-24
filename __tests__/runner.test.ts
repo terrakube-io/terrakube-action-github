@@ -74,6 +74,7 @@ const targets: Target[] = [
 function fakeClient() {
   return {
     checkJobVariables: async () => {},
+    context: async () => ({}),
     find: async (
       _route: string,
       type: string,

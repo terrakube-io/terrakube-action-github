@@ -4,7 +4,8 @@ import {Target, validateWorkspace} from './targets'
 import {
   savedPlanTemplate,
   verifySavedRun,
-  verifyApprovalGate
+  verifyApprovalGate,
+  hasCompletedNoChangePlan
 } from './savedPlan'
 
 export interface JobResult {
@@ -98,6 +99,7 @@ type Client = Pick<
   | 'createJob'
   | 'job'
   | 'checkJobVariables'
+  | 'context'
 >
 
 export async function runJobs(
@@ -196,10 +198,20 @@ export async function runJobs(
             ['waitingApproval', 'completed', 'noChanges'].includes(state.status)
           ) {
             verifySavedRun(document, workspace.id, config.commit, template)
-            if (state.status === 'completed')
-              throw new Error(
-                'Staged run completed before the GitHub approval handoff; inspect the remote job'
+            if (state.status === 'completed') {
+              const contract = savedPlanTemplate(template.attributes.tcl)
+              if (
+                !hasCompletedNoChangePlan(
+                  document,
+                  contract,
+                  await client.context(result.jobId, deadline)
+                )
               )
+                throw new Error(
+                  'Staged run completed without a verified no-change plan; inspect the remote job'
+                )
+              result.status = 'noChanges'
+            }
           }
           result.remoteMayBeRunning =
             !successes.has(String(document.data.attributes.status)) &&

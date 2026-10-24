@@ -121,3 +121,62 @@ export function verifyApprovalGate(
       'Saved run is not paused at its approval gate with successful preceding steps'
     )
 }
+
+export function hasCompletedNoChangePlan(
+  document: Document,
+  contract: SavedPlanTemplate,
+  context: Record<string, unknown>
+): boolean {
+  const steps = document.included || []
+  const plan = steps.find(step => step.attributes.stepNumber === contract.plan)
+  const gate = steps.find(
+    step => step.attributes.stepNumber === contract.approval
+  )
+  const apply = steps.find(
+    step => step.attributes.stepNumber === contract.apply
+  )
+  const skipped = (step?: Resource) =>
+    ['notExecuted', 'NeverExecuted'].includes(String(step?.attributes.status))
+  if (
+    document.data.attributes.status !== 'completed' ||
+    !plan ||
+    !skipped(gate) ||
+    !skipped(apply)
+  )
+    return false
+  const marker = context.structuredOutputStatus as
+    Record<string, unknown> | undefined
+  const plans = context.planStructuredOutput as
+    Record<string, unknown> | undefined
+  const diagnostics = context.jobDiagnostics as
+    Record<string, unknown> | undefined
+  if (
+    marker?.state !== 'PERSISTED' ||
+    marker.finalSnapshot !== true ||
+    marker.phase !== 'plan' ||
+    marker.stepId !== plan.id ||
+    !plans ||
+    Object.keys(plans).length !== 1 ||
+    !Array.isArray(plans[plan.id]) ||
+    !Array.isArray(diagnostics?.[plan.id])
+  )
+    return false
+  const rows = plans[plan.id] as Record<string, unknown>[]
+  const errors = diagnostics[plan.id] as Record<string, unknown>[]
+  return (
+    rows.every(
+      row =>
+        row &&
+        row.action === 'no-op' &&
+        row.status !== 'errored' &&
+        (row.actions === undefined ||
+          (Array.isArray(row.actions) &&
+            row.actions.every(action => action === 'no-op')))
+    ) &&
+    errors.every(
+      diagnostic =>
+        diagnostic &&
+        ['warning', 'info', 'note'].includes(String(diagnostic.severity))
+    )
+  )
+}

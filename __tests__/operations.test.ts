@@ -44,6 +44,7 @@ function setup(templateTcl = tcl) {
   const transitions: string[] = []
   const client = {
     checkJobVariables: async () => {},
+    context: async (): Promise<Record<string, unknown>> => ({}),
     find: async (_route: string, type: string) =>
       type === 'organization'
         ? item(type, 'org')
@@ -383,5 +384,126 @@ test('a held run must report the configured approval team before it can be appro
     setDocument(document)
     assert.equal((await run())[0]?.status, 'error')
     assert.deepEqual(transitions, [])
+  }
+})
+
+test('staged no-change completion accepts only persisted final no-op plans with skipped gates', async () => {
+  const document = savedJob('completed')
+  document.included!.slice(1).forEach(step => {
+    step.attributes.status = 'notExecuted'
+  })
+  const planId = document.included![0]!.id
+  const evidence = (): Record<string, unknown> => ({
+    structuredOutputStatus: {
+      state: 'PERSISTED',
+      finalSnapshot: true,
+      phase: 'plan',
+      stepId: planId
+    },
+    planStructuredOutput: {
+      [planId]: [
+        {address: 'terraform_data.smoke', action: 'no-op', status: 'pending'}
+      ]
+    },
+    jobDiagnostics: {[planId]: []}
+  })
+  const cases: [
+    string,
+    (
+      context: Record<string, unknown>,
+      document: ReturnType<typeof savedJob>
+    ) => void
+  ][] = [
+    ['noChanges', (_c: Record<string, unknown>) => {}],
+    [
+      'noChanges',
+      (c: Record<string, unknown>) => {
+        c.planStructuredOutput = {[planId]: []}
+      }
+    ],
+    [
+      'error',
+      (c: Record<string, unknown>) => {
+        c.structuredOutputStatus = {state: 'PROGRESS'}
+      }
+    ],
+    [
+      'error',
+      (c: Record<string, unknown>) => {
+        c.structuredOutputStatus = {
+          ...(evidence().structuredOutputStatus as object),
+          stepId: 'another-step'
+        }
+      }
+    ],
+    [
+      'error',
+      (c: Record<string, unknown>) => {
+        c.planStructuredOutput = {
+          [planId]: [{action: 'update', isOutputChange: true}]
+        }
+      }
+    ],
+    [
+      'error',
+      (c: Record<string, unknown>) => {
+        c.jobDiagnostics = {[planId]: [{severity: 'error'}]}
+      }
+    ],
+    [
+      'error',
+      (c: Record<string, unknown>) => {
+        delete c.jobDiagnostics
+      }
+    ],
+    [
+      'error',
+      (c: Record<string, unknown>) => {
+        c.planStructuredOutput = {
+          [planId]: [{action: 'no-op', actions: ['create']}]
+        }
+      }
+    ],
+    [
+      'error',
+      (_c, d) => {
+        d.included![1]!.attributes.status = 'completed'
+      }
+    ],
+    [
+      'error',
+      (_c, d) => {
+        d.included![2]!.attributes.status = 'completed'
+      }
+    ],
+    [
+      'error',
+      c => {
+        c.jobDiagnostics = {[planId]: ['invalid-diagnostic']}
+      }
+    ]
+  ]
+  for (const [expected, mutate] of cases) {
+    const {client, setDocument} = setup()
+    const copy = structuredClone(document)
+    setDocument(copy)
+    const context = evidence()
+    mutate(context, copy)
+    client.context = async () => context
+    const [result] = await runJobs(
+      config({operation: 'plan', workspace: 'example'}),
+      targets,
+      {
+        ...client,
+        createJob: async () => '42',
+        createWorkspace: async () => {
+          throw new Error('unexpected creation')
+        }
+      },
+      () => {},
+      async () => {}
+    )
+    assert.equal(result?.status, expected)
+    assert.equal(result?.jobId, '42')
   }
 })
